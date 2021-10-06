@@ -8,62 +8,68 @@ class AlchemerSession(requests.Session):
         self.api_version = api_version
         self.base_url = f"https://api.alchemer.com/{self.api_version}"
 
+        if api_version != "v5":
+            raise NotImplementedError(
+                "This library currently only works with v5+"
+            )  # TODO: add < v5
+
         if auth_method == "api_key":
             self.base_params = {
                 "api_token": api_token,
                 "api_token_secret": api_token_secret,
             }
         elif auth_method == "oauth":
-            pass
+            raise NotImplementedError(
+                "This library currently only works with 'api_key' authentication"
+            )  # TODO: add oauth
 
         super(AlchemerSession, self).__init__()
 
     def request(self, method, url, *args, **kwargs):
-        url = f"{self.base_url}/{url}"
+        id = kwargs.pop("id")
+        url = f"{self.base_url}/{url}/{id}"
         self.params.update(self.base_params)
-        return super(AlchemerSession, self).request(method, url, *args, **kwargs)
+        return super(AlchemerSession, self).request(
+            method=method, url=url, *args, **kwargs
+        )
 
-    def get_object(self, object_name, params={}):
+    def get_object(self, object_name, id="", params={}):
         try:
-            r = self.get(object_name, params=params)
+            r = self.get(url=object_name, id=id, params=params)
             r.raise_for_status()
             return r.json()
-        except requests.exceptions.HTTPError:
-            raise requests.exceptions.HTTPError(r.status_code, r.reason)
-        else:
+        except Exception as xc:
             raise xc
 
-    def get_all_data(self, object_name, params={}):
+    def get_object_data(self, object_name, id="", params={}):
         all_data = []
         while True:
-            r = self.get_object(object_name, params)
-            
+            r = self.get_object(object_name=object_name, id=id, params=params)
+
             page = r.get("page", 1)
             total_pages = r.get("total_pages", 1)
             data = r.get("data")
+
             if type(data) == list:
                 all_data.extend(r.get("data"))
             elif type(data) == dict:
                 all_data.append(r.get("data"))
-            
+
             if page == total_pages:
                 break
 
         return all_data
 
-
-# """
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-ALCHEMER_API_VERSION = os.getenv("ALCHEMER_API_VERSION")
-ALCHEMER_API_TOKEN = os.getenv("ALCHEMER_API_TOKEN")
-ALCHEMER_API_TOKEN_SECRET = os.getenv("ALCHEMER_API_TOKEN_SECRET")
+    def survey(self, id):
+        return Survey(self, id)
 
 
-alchemer = AlchemerSession(
-    ALCHEMER_API_VERSION, ALCHEMER_API_TOKEN, ALCHEMER_API_TOKEN_SECRET
-)
-print()
-# """
+class Survey(object):
+    def __init__(self, session, id):
+        self.session = session
+        self.id = id
+
+        self.data = self.session.get_object_data(object_name="survey", id=self.id)[0]
+
+    def question(self):
+        pass
