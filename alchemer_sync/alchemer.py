@@ -12,7 +12,7 @@ class AlchemerSession(requests.Session):
             )  # TODO: add < v5
 
         if auth_method == "api_key":
-            self.base_params = {
+            self.auth_params = {
                 "api_token": api_token,
                 "api_token_secret": api_token_secret,
             }
@@ -23,27 +23,30 @@ class AlchemerSession(requests.Session):
 
         super(AlchemerSession, self).__init__()
 
-    def request(self, method, url, *args, **kwargs):
+    def request(self, method, url, params, *args, **kwargs):
         id = kwargs.pop("id", "")
+
         url = f"{self.base_url}/{url}/{id}"
-        self.params.update(self.base_params)
+        params.update(self.auth_params)
         return super(AlchemerSession, self).request(
-            method=method, url=url, *args, **kwargs
+            method=method, url=url, params=params, *args, **kwargs
         )
 
-    def get_object(self, object_name, id=None, params={}):
+    def _api_call(self, method, object_name, params, id=None):
         try:
-            r = self.get(url=object_name, id=id, params=params)
+            r = self.request(method, url=object_name, id=id, params=params)
             r.raise_for_status()
             return r.json()
         except Exception as xc:
             raise xc
 
-    def get_object_data(self, object_name, id=None, params={}):
+    def _api_get(self, object_name, params, id=None):
         id = id or ""
         all_data = []
         while True:
-            r = self.get_object(object_name=object_name, id=id, params=params)
+            r = self._api_call(
+                method="GET", object_name=object_name, id=id, params=params
+            )
 
             page = r.get("page", 1)
             total_pages = r.get("total_pages", 1)
@@ -56,6 +59,8 @@ class AlchemerSession(requests.Session):
 
             if page == total_pages:
                 break
+
+            params.update({"page": page + 1})
 
         return all_data
 
@@ -71,6 +76,21 @@ class AlchemerSession(requests.Session):
     def account_user(self, id=None):
         return AccountUser(session=self, name="accountuser", id=id)
 
+    def domain(self, id=None):
+        return AccountUser(session=self, name="domain", id=id)
+
+    def sso(self, id=None):
+        return AccountUser(session=self, name="sso", id=id)
+
+    def survey_theme(self, id=None):
+        return AccountUser(session=self, name="surveytheme", id=id)
+
+    def contact_list(self, id=None):
+        return AccountUser(session=self, name="contactlist", id=id)
+
+    def contact_custom_field(self, id=None):
+        return AccountUser(session=self, name="contactcustomfield", id=id)
+
 
 class AlchemerObject(object):
     def __init__(self, session, name, id):
@@ -78,17 +98,34 @@ class AlchemerObject(object):
         self._session = session
         self.id = id or ""
 
-    def get(self):
+    def get(self, params={}):
         if self.id:
-            self.__data = self._session.get_object_data(
-                object_name=self.__name__, id=self.id
+            self.__data = self._session._api_get(
+                object_name=self.__name__, id=self.id, params=params
             )
             for k, v in self.__data[0].items():
                 setattr(self, k, v)
         return self
 
-    def list(self):
-        return self._session.get_object_data(object_name=self.__name__, id=self.id)
+    def list(self, params={}):
+        return self._session._api_get(
+            object_name=self.__name__, id=self.id, params=params
+        )
+
+    def create(self, params):
+        return self._session._api_call(
+            method="PUT", object_name=self.__name__, id=self.id, params=params
+        )
+
+    def update(self, params):
+        return self._session._api_call(
+            method="POST", object_name=self.__name__, id=self.id, params=params
+        )
+
+    def delete(self):
+        return self._session._api_call(
+            method="DELETE", object_name=self.__name__, id=self.id, params={}
+        )
 
 
 class Survey(AlchemerObject):
@@ -96,34 +133,40 @@ class Survey(AlchemerObject):
         super().__init__(**kwargs)
 
     def question(self, id=None):
-        return SurveyQuestion(session=self._session, name="surveyquestion", id=id)
+        return SurveyQuestion(parent=self, name="surveyquestion", id=id)
 
-    def campaign(self, id=None):
-        return SurveyCampaign(session=self._session, name="surveycampaign", id=id)
+    # def campaign(self, id=None):
+    #     return SurveyCampaign(session=self._session, name="surveycampaign", id=id)
 
 
 class SurveyQuestion(AlchemerObject):
     """Survey Sub-Object"""
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def option(self, id=None):
-        return SurveyQuestionOption(session=self._session, name="surveyoption", id=id)
-
-
-class SurveyCampaign(AlchemerObject):
-    """Survey Sub-Object"""
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        parent = kwargs.pop("parent")
+        parent._session.base_url = (
+            f"{parent._session.base_url}/{parent.__name__}/{parent.id}"
+        )
+        # print(parent._session.base_url)
+        super().__init__(session=parent._session, **kwargs)
 
 
-class SurveyQuestionOption(AlchemerObject):
-    """Survey Sub-Sub-Object"""
+#     def option(self, id=None):
+#         return SurveyQuestionOption(session=self._session, name="surveyoption", id=id)
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+
+# class SurveyCampaign(AlchemerObject):
+#     """Survey Sub-Object"""
+
+#     def __init__(self, **kwargs):
+#         super().__init__(**kwargs)
+
+
+# class SurveyQuestionOption(AlchemerObject):
+#     """Survey Sub-Sub-Object"""
+
+#     def __init__(self, **kwargs):
+#         super().__init__(**kwargs)
 
 
 class Account(AlchemerObject):
@@ -140,15 +183,34 @@ class AccountUser(AlchemerObject):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+
+class Domain(AlchemerObject):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+class SSO(AlchemerObject):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+class SurveyTheme(AlchemerObject):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+class ContactList(AlchemerObject):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
+class ContactCustomField(AlchemerObject):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+
 """
 TODO:
-OBJECTS
-Domain Object v5
-SSO Object v5
-SurveyTheme Object v5
-ContactList Object v5
-ContactCustomField Object
-
 SUB-OBJECTS:
 SurveyPage Sub-Object v5
 SurveyQuestion Sub-Object v5
