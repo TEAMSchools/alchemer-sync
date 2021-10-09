@@ -44,8 +44,8 @@ def upload_to_gcs(bucket, schema, file_path):
 
 
 def main():
-    gcs_storage_client = storage.Client()
-    gcs_bucket = gcs_storage_client.bucket(GCS_BUCKET_NAME)
+    # gcs_storage_client = storage.Client()
+    # gcs_bucket = gcs_storage_client.bucket(GCS_BUCKET_NAME)
 
     data_dir = PROJECT_PATH / "data"
     if not data_dir.exists():
@@ -94,8 +94,8 @@ def main():
         file_path = save_data_file(endpoint, file_name, s)
         print(f"\t\tSaved to {file_path}!")
         
-        blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
-        print(f"\t\tUploaded to {blob.public_url}!")
+        # blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
+        # print(f"\t\tUploaded to {blob.public_url}!")
 
         # survey_question
         endpoint = "survey_question"
