@@ -5,11 +5,10 @@ import pathlib
 import traceback
 from datetime import datetime, timedelta
 
+import alchemer
 from dateutil import parser, tz
 from dotenv import load_dotenv
 from google.cloud import storage
-
-from alchemer import AlchemerSession
 
 load_dotenv()
 
