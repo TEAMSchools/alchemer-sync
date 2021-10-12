@@ -15,17 +15,16 @@ load_dotenv()
 ALCHEMER_API_VERSION = os.getenv("ALCHEMER_API_VERSION")
 ALCHEMER_API_TOKEN = os.getenv("ALCHEMER_API_TOKEN")
 ALCHEMER_API_TOKEN_SECRET = os.getenv("ALCHEMER_API_TOKEN_SECRET")
+ALCHEMER_TIMEZONE = os.getenv("ALCHEMER_TIMEZONE")
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 GCS_SCHEMA_NAME = os.getenv("GCS_SCHEMA_NAME")
-LOCAL_TIMEZONE = os.getenv("LOCAL_TIMEZONE")
+
 
 PROJECT_PATH = pathlib.Path(__file__).absolute().parent
 
 
-def save_data_file(endpoint, file_name, data):
-    file_dir = PROJECT_PATH / "data" / endpoint
-    file_path = file_dir / file_name
-
+def to_json(data, file_name):
+    file_path = PROJECT_PATH / "data" / file_name
     if not file_path.parent.exists():
         file_path.parent.mkdir(parents=True)
 
@@ -43,8 +42,8 @@ def upload_to_gcs(bucket, schema, file_path):
 
 
 def main():
-    # gcs_storage_client = storage.Client()
-    # gcs_bucket = gcs_storage_client.bucket(GCS_BUCKET_NAME)
+    gcs_storage_client = storage.Client()
+    gcs_bucket = gcs_storage_client.bucket(GCS_BUCKET_NAME)
 
     data_dir = PROJECT_PATH / "data"
     if not data_dir.exists():
@@ -60,55 +59,73 @@ def main():
             state = json.load(f)
 
     print("Authenticating client...")
-    alchemer = AlchemerSession(
-        ALCHEMER_API_VERSION, ALCHEMER_API_TOKEN, ALCHEMER_API_TOKEN_SECRET
+    alchemer_client = alchemer.AlchemerSession(
+        api_version=ALCHEMER_API_VERSION,
+        api_token=ALCHEMER_API_TOKEN,
+        api_token_secret=ALCHEMER_API_TOKEN_SECRET,
+        time_zone=ALCHEMER_TIMEZONE,
     )
 
     print("Getting list of surveys...\n")
-    survey_list = alchemer.get_object_data("survey")
+    survey_list = alchemer_client.survey.list()
     for s in survey_list:
+        # get survey object
+        survey = alchemer_client.survey.get(s.get("id"))
+
         # load last run time from state and save current run time
-        bookmark = state["bookmarks"].get(s.get("id"))
-        last_run_str = bookmark or "1900-01-01 00:00:00 EST"
-        last_run = parser.parse(last_run_str[:19]).replace(
-            tzinfo=tz.gettz(LOCAL_TIMEZONE)
-        )
-        end_datetime = datetime.now(tz=tz.gettz(LOCAL_TIMEZONE)) - timedelta(hours=1)
+        bookmark = state["bookmarks"].get(survey.id) or "1970-01-01T00:00:00"
+
+        alchemer_tz = tz.gettz(ALCHEMER_TIMEZONE)
+        start_datetime = parser.parse(bookmark).replace(tzinfo=alchemer_tz)
+        start_datetime_str = start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
+        end_datetime = datetime.now(tz=alchemer_tz) - timedelta(hours=1)
         end_datetime_str = end_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
-        modified_on = parser.parse(s.get("modified_on")).replace(
-            tzinfo=tz.gettz(LOCAL_TIMEZONE)
-        )
 
         # skip unmodified archived surveys that haven't been downloaded
-        if s.get("status") == "Archived" and last_run > modified_on:
+        if survey.status == "Archived" and start_datetime > survey.modified_on:
             continue
 
-        print(f"{s['title']}\nStart: {last_run_str}\nEnd: {end_datetime_str}\n")
+        print(f"{survey.title}\nStart:\t{start_datetime_str}\nEnd:\t{end_datetime_str}")
 
         # survey metadata
         endpoint = "survey"
-        print(f"\t{endpoint}...")
-        
-        file_name = f"{s['id']}.json"
-        file_path = save_data_file(endpoint, file_name, s)
-        print(f"\t\tSaved to {file_path}!")
-        
-        # blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
-        # print(f"\t\tUploaded to {blob.public_url}!")
+        print(f"\n{survey.id} - {endpoint}...")
+
+        file_name = f"{endpoint}/{survey.id}.json.gz"
+        file_path = to_json(survey.data, file_name)
+        print(f"\tSaved to {file_path}")
+
+        blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
+        print(f"\tUploaded to {blob.public_url}")
 
         # survey_question
         endpoint = "survey_question"
-        print(f"\t{endpoint}...")
-        # try:
-        #     survey_question = alchemer.get_object_data("surveyquestion", id=s["id"])
-        #     survey_question_data = survey_question["data"]
-        #     survey_question_df = pd.DataFrame(survey_question_data)
-        #     survey_question_df["survey_id"] = s["id"]
-        #     save_df(survey_question_df, endpoint, survey_filename)
-        # except Exception as xc:
-        #     print(xc)
-        #     print(traceback.format_exc())
+        print(f"\n{survey.id} - {endpoint}...")
 
+        sq_list = survey.question.list()
+        sq_list = [dict(sq, survey_id=survey.id) for sq in sq_list]
+
+        file_name = f"{endpoint}/{survey.id}.json.gz"
+        file_path = to_json(sq_list, file_name)
+        print(f"\tSaved to {file_path}")
+
+        blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
+        print(f"\tUploaded to {blob.public_url}")
+
+        # survey_campaign
+        endpoint = "survey_campaign"
+        print(f"\n{survey.id} - {endpoint}...")
+
+        sc_list = survey.campaign.list()
+        sc_list = [dict(sc, survey_id=survey.id) for sc in sc_list]
+
+        file_name = f"{endpoint}/{survey.id}.json.gz"
+        file_path = to_json(sc_list, file_name)
+        print(f"\tSaved to {file_path}")
+
+        blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
+        print(f"\tUploaded to {blob.public_url}")
+        
         # # update state if successful
         # if result:
         #     state["bookmarks"][s["id"]] = end_datetime_str
