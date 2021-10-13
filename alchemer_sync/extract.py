@@ -18,7 +18,7 @@ ALCHEMER_API_TOKEN_SECRET = os.getenv("ALCHEMER_API_TOKEN_SECRET")
 ALCHEMER_TIMEZONE = os.getenv("ALCHEMER_TIMEZONE")
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 GCS_SCHEMA_NAME = os.getenv("GCS_SCHEMA_NAME")
-
+RESULTS_PER_PAGE = os.getenv("RESULTS_PER_PAGE")
 
 PROJECT_PATH = pathlib.Path(__file__).absolute().parent
 
@@ -69,21 +69,27 @@ def main():
     print("Getting list of surveys...\n")
     survey_list = alchemer_client.survey.list()
     for s in survey_list:
-        # get survey object
-        survey = alchemer_client.survey.get(s.get("id"))
-
         # load last run time from state and save current run time
-        bookmark = state["bookmarks"].get(survey.id) or "1970-01-01T00:00:00"
+        bookmark = state["bookmarks"].get(s.get("id")) or "1970-01-01T00:00:00"
 
         alchemer_tz = tz.gettz(ALCHEMER_TIMEZONE)
         start_datetime = parser.parse(bookmark).replace(tzinfo=alchemer_tz)
         start_datetime_str = start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
         end_datetime = datetime.now(tz=alchemer_tz) - timedelta(hours=1)
         end_datetime_str = end_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
+        end_timestamp_str = str(end_datetime.timestamp()).replace(".", "_")
 
         # skip unmodified archived surveys that haven't been downloaded
-        if survey.status == "Archived" and start_datetime > survey.modified_on:
+        if s.get("status") == "Archived" and start_datetime > s.get("modified_on"):
             continue
+
+        # get survey object
+        survey = alchemer_client.survey.get(s.get("id"))
+
+        if survey.statistics is None:
+            survey.statistics = {}
+        total_count = sum([int(v) for v in survey.statistics.values()])
+        dq_count = survey.statistics.get("Disqualified", 0)
 
         print(f"{survey.title}\nStart:\t{start_datetime_str}\nEnd:\t{end_datetime_str}")
 
@@ -125,18 +131,61 @@ def main():
 
         blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
         print(f"\tUploaded to {blob.public_url}")
-        
-        # # update state if successful
-        # if result:
-        #     state["bookmarks"][s["id"]] = end_datetime_str
 
+        # survey_response DQs
+        endpoint = "survey_response_disqualified"
+        print(f"\n{survey.id} - {endpoint}...")
+
+        if dq_count > 0:
+            sr_dq_list = survey.response.filter("status", "=", "Disqualified").list()
+            sr_dq_list = [dict(dq, survey_id=survey.id) for dq in sr_dq_list]
+
+            file_name = f"{endpoint}/{survey.id}.json.gz"
+            file_path = to_json(sr_dq_list, file_name)
+            print(f"\tSaved to {file_path}")
+
+            blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
+            print(f"\tUploaded to {blob.public_url}")
+
+        # survey_response
+        endpoint = "survey_response"
+        print(f"\n{survey.id} - {endpoint}...")
+
+        if total_count > 0:
+            sr_list = (
+                survey.response.filter("date_submitted", ">=", start_datetime_str)
+                .filter("date_submitted", "<", end_datetime_str)
+                .list({"page": 1, "resultsperpage": 10})  # TODO: delete dev params
+            )
+
+            if sr_list:
+                sr_list = [dict(sr, survey_id=survey.id) for sr in sr_list]
+
+                # `survey_data` needs to be transformed into list of dicts
+                sr_list = [
+                    dict(
+                        sr,
+                        survey_data_list=[v for k, v in sr.get("survey_data").items()],
+                    )
+                    for sr in sr_list
+                ]
+
+                file_name = f"{endpoint}/{survey.id}_{end_timestamp_str}.json.gz"
+                file_path = to_json(sr_list, file_name)
+                print(f"\tSaved to {file_path}")
+
+                blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
+                print(f"\tUploaded to {blob.public_url}")
+
+        # update bookmark
+        state["bookmarks"][survey.id] = end_datetime.isoformat()
         print()
 
-    # save state
-    with state_file_path.open("r+") as f:
-        f.seek(0)
-        json.dump(state, f)
-        f.truncate()
+    # # save state
+    # with state_file_path.open("r+") as f:
+    #     f.seek(0)
+    #     json.dump(state, f)
+    #     f.truncate()
 
 
 if __name__ == "__main__":
