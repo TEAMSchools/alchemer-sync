@@ -38,7 +38,7 @@ def to_json(data, file_name):
 def upload_to_gcs(bucket, schema, file_path):
     parts = file_path.parts
     blob = bucket.blob(f"{schema}/{'/'.join(parts[parts.index('data') + 1:])}")
-    # blob.upload_from_filename(file_path)
+    blob.upload_from_filename(file_path)
     return blob
 
 
@@ -70,7 +70,6 @@ def main():
     print("Getting list of surveys...\n")
     survey_list = alchemer_client.survey.list()
     for s in survey_list:
-        # load last run time from state and save current run time
         bookmark = state.get(s.get("id")) or "1970-01-01T00:00:00"
         modified_on = parser.parse(s.get("modified_on")).replace(tzinfo=TZINFO)
 
@@ -143,22 +142,22 @@ def main():
 
         # survey_response DQs
         if dq_count > 0:
-            sr_dq_list = (
+            dq_list = (
                 survey.response.filter("status", "=", "Disqualified")
                 .filter("date_submitted", ">=", ay_start_str)
                 .filter("date_submitted", "<", end_str)
                 .list()
             )
 
-            if sr_dq_list:
+            if dq_list:
                 endpoint = "survey_response_disqualified"
                 print(f"\n{survey.id} - {endpoint}...")
 
-                sr_dq_list = [dict(dq, survey_id=survey.id) for dq in sr_dq_list]
-                print(f"\tFound {len(sr_dq_list)} records!")
+                dq_list = [dict(dq, survey_id=survey.id) for dq in dq_list]
+                print(f"\tFound {len(dq_list)} records!")
 
                 file_name = f"{endpoint}/{survey.id}_{ay_start_str}.json.gz"
-                file_path = to_json(sr_dq_list, file_name)
+                file_path = to_json(dq_list, file_name)
                 print(f"\tSaved to {file_path}")
 
                 blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
@@ -186,6 +185,14 @@ def main():
                     )
                     for sr in sr_list
                 ]
+
+                # `options` needs to be transformed into list of dicts
+                for sr in sr_list:
+                    for q in sr["survey_data_list"]:
+                        options = q.get("options")
+                        if options:
+                            q["options_list"] = [v for k, v in options.items()]
+
                 print(f"\tFound {len(sr_list)} records!")
 
                 file_name = f"{endpoint}/{survey.id}_{start_timestamp_str}.json.gz"
