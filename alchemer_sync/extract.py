@@ -18,9 +18,10 @@ ALCHEMER_API_TOKEN_SECRET = os.getenv("ALCHEMER_API_TOKEN_SECRET")
 ALCHEMER_TIMEZONE = os.getenv("ALCHEMER_TIMEZONE")
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME")
 GCS_SCHEMA_NAME = os.getenv("GCS_SCHEMA_NAME")
-RESULTS_PER_PAGE = os.getenv("RESULTS_PER_PAGE")
+CURRENT_ACADEMIC_YEAR = int(os.getenv("CURRENT_ACADEMIC_YEAR"))
 
 PROJECT_PATH = pathlib.Path(__file__).absolute().parent
+TZINFO = tz.gettz(ALCHEMER_TIMEZONE)
 
 
 def to_json(data, file_name):
@@ -51,7 +52,7 @@ def main():
 
     state_file_path = data_dir / "state.json"
     if not state_file_path.exists():
-        state = {"bookmarks": {}}
+        state = {}
         with state_file_path.open("a+") as f:
             json.dump(state, f)
     else:
@@ -70,17 +71,23 @@ def main():
     survey_list = alchemer_client.survey.list()
     for s in survey_list:
         # load last run time from state and save current run time
-        bookmark = state["bookmarks"].get(s.get("id")) or "1970-01-01T00:00:00"
+        bookmark = state.get(s.get("id")) or "1970-01-01T00:00:00"
+        modified_on = parser.parse(s.get("modified_on")).replace(tzinfo=TZINFO)
 
-        alchemer_tz = tz.gettz(ALCHEMER_TIMEZONE)
-        start_datetime = parser.parse(bookmark).replace(tzinfo=alchemer_tz)
-        start_datetime_str = start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
-        end_datetime = datetime.now(tz=alchemer_tz) - timedelta(hours=1)
-        end_datetime_str = end_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
-        end_timestamp_str = str(end_datetime.timestamp()).replace(".", "_")
+        start_datetime = parser.parse(bookmark).replace(tzinfo=TZINFO)
+        start_str = start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
+        start_timestamp_str = str(start_datetime.timestamp()).replace(".", "_")
+
+        end_datetime = datetime.now(tz=TZINFO) - timedelta(hours=1)
+        end_str = end_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
+
+        ay_start_datetime = datetime(
+            year=CURRENT_ACADEMIC_YEAR, month=7, day=1, tzinfo=TZINFO
+        )
+        ay_start_str = ay_start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
 
         # skip unmodified archived surveys that haven't been downloaded
-        if s.get("status") == "Archived" and start_datetime > s.get("modified_on"):
+        if s.get("status") == "Archived" and start_datetime > modified_on:
             continue
 
         # get survey object
@@ -91,7 +98,7 @@ def main():
         total_count = sum([int(v) for v in survey.statistics.values()])
         dq_count = survey.statistics.get("Disqualified", 0)
 
-        print(f"{survey.title}\nStart:\t{start_datetime_str}\nEnd:\t{end_datetime_str}")
+        print(f"{survey.title}\nStart:\t{start_str}\nEnd:\t{end_str}")
 
         # survey metadata
         endpoint = "survey"
@@ -110,6 +117,7 @@ def main():
 
         sq_list = survey.question.list()
         sq_list = [dict(sq, survey_id=survey.id) for sq in sq_list]
+        print(f"\tFound {len(sq_list)} records!")
 
         file_name = f"{endpoint}/{survey.id}.json.gz"
         file_path = to_json(sq_list, file_name)
@@ -124,6 +132,7 @@ def main():
 
         sc_list = survey.campaign.list()
         sc_list = [dict(sc, survey_id=survey.id) for sc in sc_list]
+        print(f"\tFound {len(sc_list)} records!")
 
         file_name = f"{endpoint}/{survey.id}.json.gz"
         file_path = to_json(sc_list, file_name)
@@ -133,32 +142,40 @@ def main():
         print(f"\tUploaded to {blob.public_url}")
 
         # survey_response DQs
-        endpoint = "survey_response_disqualified"
-        print(f"\n{survey.id} - {endpoint}...")
-
         if dq_count > 0:
-            sr_dq_list = survey.response.filter("status", "=", "Disqualified").list()
-            sr_dq_list = [dict(dq, survey_id=survey.id) for dq in sr_dq_list]
+            sr_dq_list = (
+                survey.response.filter("status", "=", "Disqualified")
+                .filter("date_submitted", ">=", ay_start_str)
+                .filter("date_submitted", "<", end_str)
+                .list()
+            )
 
-            file_name = f"{endpoint}/{survey.id}.json.gz"
-            file_path = to_json(sr_dq_list, file_name)
-            print(f"\tSaved to {file_path}")
+            if sr_dq_list:
+                endpoint = "survey_response_disqualified"
+                print(f"\n{survey.id} - {endpoint}...")
 
-            blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
-            print(f"\tUploaded to {blob.public_url}")
+                sr_dq_list = [dict(dq, survey_id=survey.id) for dq in sr_dq_list]
+                print(f"\tFound {len(sr_dq_list)} records!")
+
+                file_name = f"{endpoint}/{survey.id}_{ay_start_str}.json.gz"
+                file_path = to_json(sr_dq_list, file_name)
+                print(f"\tSaved to {file_path}")
+
+                blob = upload_to_gcs(gcs_bucket, GCS_SCHEMA_NAME, file_path)
+                print(f"\tUploaded to {blob.public_url}")
 
         # survey_response
-        endpoint = "survey_response"
-        print(f"\n{survey.id} - {endpoint}...")
-
         if total_count > 0:
             sr_list = (
-                survey.response.filter("date_submitted", ">=", start_datetime_str)
-                .filter("date_submitted", "<", end_datetime_str)
-                .list({"page": 1, "resultsperpage": 10})  # TODO: delete dev params
+                survey.response.filter("date_submitted", ">=", start_str)
+                .filter("date_submitted", "<", end_str)
+                .list()
             )
 
             if sr_list:
+                endpoint = "survey_response"
+                print(f"\n{survey.id} - {endpoint}...")
+
                 sr_list = [dict(sr, survey_id=survey.id) for sr in sr_list]
 
                 # `survey_data` needs to be transformed into list of dicts
@@ -169,8 +186,9 @@ def main():
                     )
                     for sr in sr_list
                 ]
+                print(f"\tFound {len(sr_list)} records!")
 
-                file_name = f"{endpoint}/{survey.id}_{end_timestamp_str}.json.gz"
+                file_name = f"{endpoint}/{survey.id}_{start_timestamp_str}.json.gz"
                 file_path = to_json(sr_list, file_name)
                 print(f"\tSaved to {file_path}")
 
@@ -178,14 +196,14 @@ def main():
                 print(f"\tUploaded to {blob.public_url}")
 
         # update bookmark
-        state["bookmarks"][survey.id] = end_datetime.isoformat()
+        state[survey.id] = end_datetime.isoformat()
         print()
 
-    # # save state
-    # with state_file_path.open("r+") as f:
-    #     f.seek(0)
-    #     json.dump(state, f)
-    #     f.truncate()
+    # save state
+    with state_file_path.open("r+") as f:
+        f.seek(0)
+        json.dump(state, f)
+        f.truncate()
 
 
 if __name__ == "__main__":
