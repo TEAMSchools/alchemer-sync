@@ -7,10 +7,7 @@ from datetime import datetime, timedelta
 
 import alchemer
 from dateutil import parser, tz
-from dotenv import load_dotenv
 from google.cloud import storage
-
-load_dotenv()
 
 ALCHEMER_API_VERSION = os.getenv("ALCHEMER_API_VERSION")
 ALCHEMER_API_TOKEN = os.getenv("ALCHEMER_API_TOKEN")
