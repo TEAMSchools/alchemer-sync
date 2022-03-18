@@ -9,9 +9,7 @@ license-expression = "MIT"
 dependencies = [
     "google-cloud-storage>=1.42.3",
     "python-dateutil>=2.8.2",
-    "alchemer>=0.5.4",
-    "setuptools>=60.10.0",
-]
+    "alchemer>=0.5.4"]
 requires-python = ">=3.9,<4.0"
 
 [project.urls]
