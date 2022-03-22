@@ -9,6 +9,8 @@ import alchemer
 from dateutil import parser, tz
 from google.cloud import storage
 
+from datarobot.utilities import email
+
 ALCHEMER_API_VERSION = os.getenv("ALCHEMER_API_VERSION")
 ALCHEMER_API_TOKEN = os.getenv("ALCHEMER_API_TOKEN")
 ALCHEMER_API_TOKEN_SECRET = os.getenv("ALCHEMER_API_TOKEN_SECRET")
@@ -216,3 +218,6 @@ if __name__ == "__main__":
     except Exception as xc:
         print(xc)
         print(traceback.format_exc())
+        email_subject = "Alchemer Extract Error"
+        email_body = f"{xc}\n\n{traceback.format_exc()}"
+        email.send_email(subject=email_subject, body=email_body)
