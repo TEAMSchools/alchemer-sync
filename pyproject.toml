@@ -29,5 +29,6 @@ requires = ["pdm-pep517"]
 build-backend = "pdm.pep517.api"
 
 [tool.pdm.scripts]
+_.env_file = ".env"
 extract.cmd = "python alchemer_sync/extract.py"
-extract.env_file = ".env"
+extract.site_packages = true
