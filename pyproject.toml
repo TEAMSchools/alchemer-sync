@@ -3,32 +3,30 @@ name = "alchemer-sync"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Charlie Bini", email = "5003326+cbini@users.noreply.github.com"},
+  { name = "Charlie Bini", email = "5003326+cbini@users.noreply.github.com" },
 ]
 license-expression = "MIT"
 dependencies = [
-    "google-cloud-storage>=1.42.3",
-    "python-dateutil>=2.8.2",
-    "alchemer>=0.5.4"]
+  "google-cloud-storage>=1.42.3",
+  "python-dateutil>=2.8.2",
+  "alchemer>=0.5.4",
+  "setuptools>=65.5.0",
+]
 requires-python = ">=3.9,<4.0"
 
 [project.urls]
 Homepage = ""
 
+[project.optional-dependencies]
 [tool.pdm]
 includes = []
 
 [tool.pdm.dev-dependencies]
-dev = [
-    "pytest",
-    "black",
-    "flake8>=4.0.1",
-]
+dev = []
 [build-system]
 requires = ["pdm-pep517"]
 build-backend = "pdm.pep517.api"
 
 [tool.pdm.scripts]
 _.env_file = ".env"
-extract.cmd = "python alchemer_sync/extract.py"
-extract.site_packages = true
+extract = { cmd = "python alchemer_sync/extract.py" }
