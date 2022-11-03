@@ -32,7 +32,7 @@ def upload_to_gcs(bucket, schema, file_path):
 
 
 def main():
-    alchemer_timezone = os.getenv("alchemer_timezone")
+    alchemer_timezone = os.getenv("ALCHEMER_TIMEZONE")
 
     gcs_storage_client = storage.Client()
     gcs_bucket = gcs_storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
