@@ -10,12 +10,11 @@ import alchemer
 from dateutil import parser
 from google.cloud import storage
 
-ALCHEMER_TIMEZONE = os.getenv("ALCHEMER_TIMEZONE")
-FILE_DIR = pathlib.Path(__file__).absolute().parent
+SCRIPT_DIR = pathlib.Path(__file__).absolute().parent
 
 
-def to_json(data, file_name):
-    file_dir = FILE_DIR / "data" / file_name
+def save_json(data, file_name):
+    file_dir = SCRIPT_DIR / "data" / file_name
     if not file_dir.parent.exists():
         file_dir.parent.mkdir(parents=True)
 
@@ -33,10 +32,12 @@ def upload_to_gcs(bucket, schema, file_path):
 
 
 def main():
+    alchemer_timezone = os.getenv("alchemer_timezone")
+
     gcs_storage_client = storage.Client()
     gcs_bucket = gcs_storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
 
-    data_dir = FILE_DIR / "data"
+    data_dir = SCRIPT_DIR / "data"
     if not data_dir.exists():
         data_dir.mkdir(parents=True)
 
@@ -54,7 +55,7 @@ def main():
         api_version=os.getenv("ALCHEMER_API_VERSION"),
         api_token=os.getenv("ALCHEMER_API_TOKEN"),
         api_token_secret=os.getenv("ALCHEMER_API_TOKEN_SECRET"),
-        time_zone=ALCHEMER_TIMEZONE,
+        time_zone=alchemer_timezone,
     )
 
     print("Getting list of surveys...\n")
@@ -62,23 +63,23 @@ def main():
     for s in survey_list:
         bookmark = state.get(s.get("id")) or "1970-01-01T00:00:00"
         modified_on = parser.parse(s.get("modified_on")).replace(
-            tzinfo=ZoneInfo(ALCHEMER_TIMEZONE)
+            tzinfo=ZoneInfo(alchemer_timezone)
         )
 
         start_datetime = parser.parse(bookmark).replace(
-            tzinfo=ZoneInfo(ALCHEMER_TIMEZONE)
+            tzinfo=ZoneInfo(alchemer_timezone)
         )
         start_str = start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
         start_timestamp_str = str(start_datetime.timestamp()).replace(".", "_")
 
-        end_datetime = datetime.now(tz=ZoneInfo(ALCHEMER_TIMEZONE)) - timedelta(hours=1)
+        end_datetime = datetime.now(tz=ZoneInfo(alchemer_timezone)) - timedelta(hours=1)
         end_str = end_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
 
         ay_start_datetime = datetime(
             year=int(os.getenv("CURRENT_ACADEMIC_YEAR")),
             month=7,
             day=1,
-            tzinfo=ZoneInfo(ALCHEMER_TIMEZONE),
+            tzinfo=ZoneInfo(alchemer_timezone),
         )
         ay_start_str = ay_start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
 
@@ -101,7 +102,7 @@ def main():
         print(f"\n{survey.id} - {endpoint}...")
 
         file_name = f"{endpoint}/{survey.id}.json.gz"
-        file_path = to_json(survey.data, file_name)
+        file_path = save_json(survey.data, file_name)
         print(f"\tSaved to {file_path}")
 
         blob = upload_to_gcs(gcs_bucket, "alchemer", file_path)
@@ -116,7 +117,7 @@ def main():
         print(f"\tFound {len(sq_list)} records!")
 
         file_name = f"{endpoint}/{survey.id}.json.gz"
-        file_path = to_json(sq_list, file_name)
+        file_path = save_json(sq_list, file_name)
         print(f"\tSaved to {file_path}")
 
         blob = upload_to_gcs(gcs_bucket, "alchemer", file_path)
@@ -131,7 +132,7 @@ def main():
         print(f"\tFound {len(sc_list)} records!")
 
         file_name = f"{endpoint}/{survey.id}.json.gz"
-        file_path = to_json(sc_list, file_name)
+        file_path = save_json(sc_list, file_name)
         print(f"\tSaved to {file_path}")
 
         blob = upload_to_gcs(gcs_bucket, "alchemer", file_path)
@@ -154,7 +155,7 @@ def main():
                 print(f"\tFound {len(dq_list)} records!")
 
                 file_name = f"{endpoint}/{survey.id}_{ay_start_str}.json.gz"
-                file_path = to_json(dq_list, file_name)
+                file_path = save_json(dq_list, file_name)
                 print(f"\tSaved to {file_path}")
 
                 blob = upload_to_gcs(gcs_bucket, "alchemer", file_path)
@@ -193,7 +194,7 @@ def main():
                 print(f"\tFound {len(sr_list)} records!")
 
                 file_name = f"{endpoint}/{survey.id}_{start_timestamp_str}.json.gz"
-                file_path = to_json(sr_list, file_name)
+                file_path = save_json(sr_list, file_name)
                 print(f"\tSaved to {file_path}")
 
                 blob = upload_to_gcs(gcs_bucket, "alchemer", file_path)
