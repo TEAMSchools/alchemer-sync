@@ -3,15 +3,15 @@ name = ""
 version = ""
 description = ""
 authors = [
-    {name = "Charlie Bini", email = "5003326+cbini@users.noreply.github.com"},
+  { name = "Charlie Bini", email = "5003326+cbini@users.noreply.github.com" },
 ]
 dependencies = [
-    "google-cloud-storage>=2.5.0",
-    "python-dateutil>=2.8.2",
-    "alchemer>=0.5.4",
+  "google-cloud-storage>=2.5.0",
+  "python-dateutil>=2.8.2",
+  "alchemer>=0.5.4",
 ]
 requires-python = ">=3.9"
-license = {text = "MIT"}
+license = { text = "MIT" }
 
 [tool.pdm]
 includes = []
@@ -25,3 +25,4 @@ build-backend = "pdm.pep517.api"
 [tool.pdm.scripts]
 _.env_file = ".env"
 extract = { cmd = "python alchemer_sync/extract.py" }
+post_lock = { shell = "pdm export -f requirements > requirements.txt" }
