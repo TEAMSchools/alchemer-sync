@@ -57,7 +57,10 @@ for s in survey_config["surveys"]:
 
         for uopt in unmatched_options:
             print(f"\t\t{uopt}")
-            question.option.create(params={"title": uopt, "value": uopt})
+            try:
+                question.option.create(params={"title": uopt, "value": uopt})
+            except Exception as xc:
+                print(xc)
 
         print("\tDELETE terminated options")
         terminated_options = []
@@ -67,7 +70,10 @@ for s in survey_config["surveys"]:
 
         for topt in terminated_options:
             print(f"\t\t{topt['value']}")
-            question.option.delete(id=topt["id"])
+            try:
+                question.option.delete(id=topt["id"])
+            except Exception as xc:
+                print(xc)
 
         print("\tDELETE invalid options")
         mismatched_options = []
@@ -77,6 +83,7 @@ for s in survey_config["surveys"]:
 
         for mopt in mismatched_options:
             print(f"\t\t{mopt['value']}")
-            question.option.delete(id=mopt["id"])
-
-        print()
+            try:
+                question.option.delete(id=mopt["id"])
+            except Exception as xc:
+                print(xc)
