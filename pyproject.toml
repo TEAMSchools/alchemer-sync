@@ -25,5 +25,6 @@ build-backend = "pdm.pep517.api"
 
 [tool.pdm.scripts]
 _.env_file = ".env"
-extract = { cmd = "python alchemer_sync/extract.py" }
+extract = { call = "alchemer_sync.extract:main" }
+update-options = { call = "alchemer_sync.update_options:main" }
 post_lock = { shell = "pdm export -f requirements > requirements.txt" }
