@@ -1,11 +1,11 @@
 [[package]]
 name = "alchemer"
-version = "0.5.4"
-requires_python = ">=3.9,<4.0"
+version = "0.5.5"
+requires_python = ">=3.9"
 summary = ""
 dependencies = [
-    "python-dateutil<3.0.0,>=2.8.2",
-    "requests<3.0.0,>=2.26.0",
+    "python-dateutil>=2.8.2",
+    "requests>=2.28.1",
 ]
 
 [[package]]
@@ -175,9 +175,9 @@ lock_version = "4.0"
 content_hash = "sha256:3646bd22529f781ca60c9725be7bf68b40fd8e61a899322496ba1f7ed19b77b2"
 
 [metadata.files]
-"alchemer 0.5.4" = [
-    {url = "https://files.pythonhosted.org/packages/60/95/2a666fbe724e1a76a48578018cffa56472a3a7fc0b78eef056acd721f8eb/alchemer-0.5.4.tar.gz", hash = "sha256:2a8d369c4ed4575c6a22c89a9750cdcd04180bc03443beeac0b48c13572058f6"},
-    {url = "https://files.pythonhosted.org/packages/8e/2b/8745cc0f92eed455427a3e226e60ecd030a99a7eef5f488ec8c8482ce57a/alchemer-0.5.4-py3-none-any.whl", hash = "sha256:572763fed54eb02b849fcbc21200f17206739c2eea15f17b67f2e97a100fc8ee"},
+"alchemer 0.5.5" = [
+    {url = "https://files.pythonhosted.org/packages/b7/50/5374cc6342d3610c861e184d0498a2970ded96915007e0fe7fb7fcb75ea1/alchemer-0.5.5-py3-none-any.whl", hash = "sha256:8617dbcadf8a2863c3a2d289edeeb720c8d354326dedd875f064471c0e6fb1f6"},
+    {url = "https://files.pythonhosted.org/packages/f2/25/33d847bff0324ad31505ea51850926f63b56b8083cf581c5a151c5057be7/alchemer-0.5.5.tar.gz", hash = "sha256:90055f0bc7e65d37d0bdb3444a6939222cff49fafb05745235bac52c5d000f25"},
 ]
 "cachetools 5.2.0" = [
     {url = "https://files.pythonhosted.org/packages/68/aa/5fc646cae6e997c3adf3b0a7e257cda75cff21fcba15354dffd67789b7bb/cachetools-5.2.0-py3-none-any.whl", hash = "sha256:f9f17d2aec496a9aa6b76f53e3b614c965223c061982d434d160f930c698a9db"},
