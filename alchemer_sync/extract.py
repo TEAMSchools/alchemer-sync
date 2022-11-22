@@ -105,7 +105,7 @@ def main():
         file_path = save_json(survey.data, file_name)
         print(f"\tSaved to {file_path}")
 
-        blob = upload_to_gcs(gcs_bucket, "alchemer", file_path)
+        blob = upload_to_gcs(gcs_bucket, "surveygizmo", file_path)
         print(f"\tUploaded to {blob.public_url}")
 
         # survey_question
@@ -120,7 +120,7 @@ def main():
         file_path = save_json(sq_list, file_name)
         print(f"\tSaved to {file_path}")
 
-        blob = upload_to_gcs(gcs_bucket, "alchemer", file_path)
+        blob = upload_to_gcs(gcs_bucket, "surveygizmo", file_path)
         print(f"\tUploaded to {blob.public_url}")
 
         # survey_campaign
@@ -135,7 +135,7 @@ def main():
         file_path = save_json(sc_list, file_name)
         print(f"\tSaved to {file_path}")
 
-        blob = upload_to_gcs(gcs_bucket, "alchemer", file_path)
+        blob = upload_to_gcs(gcs_bucket, "surveygizmo", file_path)
         print(f"\tUploaded to {blob.public_url}")
 
         # survey_response DQs
@@ -158,7 +158,7 @@ def main():
                 file_path = save_json(dq_list, file_name)
                 print(f"\tSaved to {file_path}")
 
-                blob = upload_to_gcs(gcs_bucket, "alchemer", file_path)
+                blob = upload_to_gcs(gcs_bucket, "surveygizmo", file_path)
                 print(f"\tUploaded to {blob.public_url}")
 
         # survey_response
@@ -197,7 +197,7 @@ def main():
                 file_path = save_json(sr_list, file_name)
                 print(f"\tSaved to {file_path}")
 
-                blob = upload_to_gcs(gcs_bucket, "alchemer", file_path)
+                blob = upload_to_gcs(gcs_bucket, "surveygizmo", file_path)
                 print(f"\tUploaded to {blob.public_url}")
 
         # update bookmark

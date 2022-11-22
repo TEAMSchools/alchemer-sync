@@ -6,13 +6,15 @@ authors = [
   { name = "Charlie Bini", email = "5003326+cbini@users.noreply.github.com" },
 ]
 dependencies = [
-  "google-cloud-storage>=2.5.0",
-  "python-dateutil>=2.8.2",
-  "alchemer>=0.5.4",
-  "tomli>=2.0.1",
+    "google-cloud-storage>=2.5.0",
+    "python-dateutil>=2.8.2",
+    "alchemer>=0.5.4",
+    "tomli>=2.0.1",
+    "datarobot @ file:///${PROJECT_ROOT}/../datarobot",
 ]
 requires-python = ">=3.9"
 license = { text = "MIT" }
+dynamic = ["dependencies"]
 
 [tool.pdm]
 includes = []
@@ -27,4 +29,4 @@ build-backend = "pdm.pep517.api"
 _.env_file = ".env"
 extract = { call = "alchemer_sync.extract:main" }
 update-options = { call = "alchemer_sync.update_options:main" }
-post_lock = { shell = "pdm export -f requirements > requirements.txt" }
+post_lock = { shell = "pdm export -f requirements -o requirements.txt" }
