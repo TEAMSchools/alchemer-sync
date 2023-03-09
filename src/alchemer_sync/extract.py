@@ -3,11 +3,9 @@ import json
 import os
 import pathlib
 import traceback
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 import alchemer
-from dateutil import parser
+import pendulum
 from google.cloud import storage
 
 SCRIPT_DIR = pathlib.Path(__file__).absolute().parent
@@ -62,24 +60,24 @@ def main():
     survey_list = alchemer_client.survey.list()
     for s in survey_list:
         bookmark = state.get(s.get("id")) or "1970-01-01T00:00:00"
-        modified_on = parser.parse(s.get("modified_on")).replace(
-            tzinfo=ZoneInfo(alchemer_timezone)
+        modified_on = pendulum.parse(
+            text=s.get("modified_on"),
+            tz=alchemer_timezone 
         )
 
-        start_datetime = parser.parse(bookmark).replace(
-            tzinfo=ZoneInfo(alchemer_timezone)
+        start_datetime = pendulum.parse(bookmark, tz=alchemer_timezone
         )
         start_str = start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
         start_timestamp_str = str(start_datetime.timestamp()).replace(".", "_")
 
-        end_datetime = datetime.now(tz=ZoneInfo(alchemer_timezone)) - timedelta(hours=1)
+        end_datetime = pendulum.now(tz=alchemer_timezone).subtract(hours=1)
         end_str = end_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
 
-        ay_start_datetime = datetime(
+        ay_start_datetime = pendulum.datetime(
             year=int(os.getenv("CURRENT_ACADEMIC_YEAR")),
             month=7,
             day=1,
-            tzinfo=ZoneInfo(alchemer_timezone),
+            tzinfo=alchemer_timezone,
         )
         ay_start_str = ay_start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
 

@@ -47,5 +47,7 @@
   "python.terminal.activateEnvironment": false,
   "[yaml]": {
     "editor.defaultFormatter": "trunk.io"
-  }
+  },
+  "editor.defaultFormatter": "trunk.io",
+  "editor.renderWhitespace": "all"
 }

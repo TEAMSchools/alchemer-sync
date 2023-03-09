@@ -7,7 +7,12 @@ authors = [
 ]
 requires-python = ">=3.9"
 license = { text = "GPL-3.0-or-later" }
-dependencies = []
+dependencies = [
+  "google-cloud-storage>=2.7.0",
+  "alchemer>=0.6.0",
+  "tomli>=2.0.1",
+  "pendulum>=2.1.2",
+]
 #google-cloud-storage alchemer tomli
 
 [project.optional-dependencies]
@@ -30,4 +35,4 @@ docs-deploy = { shell = "mkdocs gh-deploy", help = "Deploy your documentation to
 test = { shell = "pdm run pytest", help = "run tests with the default Python" }
 extract = { call = "alchemer_sync.extract:main" }
 update-options = { call = "alchemer_sync.update_options:main" }
-_.env_file = ".env"
+_.env_file = "env/.env"
