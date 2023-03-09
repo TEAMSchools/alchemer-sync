@@ -5,9 +5,10 @@ description = ""
 authors = [
   { name = "Charlie Bini", email = "5003326+cbini@users.noreply.github.com" },
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 license = { text = "GPL-3.0-or-later" }
 dependencies = []
+#google-cloud-storage alchemer tomli
 
 [project.optional-dependencies]
 
@@ -27,3 +28,6 @@ docs-build = { shell = "mkdocs build", help = "Build the MkDocs documentation" }
 docs-serve = { shell = "mkdocs serve", help = "Run the builtin development server" }
 docs-deploy = { shell = "mkdocs gh-deploy", help = "Deploy your documentation to GitHub Pages" }
 test = { shell = "pdm run pytest", help = "run tests with the default Python" }
+extract = { call = "alchemer_sync.extract:main" }
+update-options = { call = "alchemer_sync.update_options:main" }
+_.env_file = ".env"
