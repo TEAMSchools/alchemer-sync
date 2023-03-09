@@ -1,18 +1,15 @@
 import json
 import os
-import pathlib
 
 import alchemer
 import tomli
 
 
 def main():
-    options_filepath = pathlib.Path("alchemer_sync/options.toml").absolute()
-    with options_filepath.open("rb") as f:
+    with open("env/options.toml", "rb") as f:
         survey_config = tomli.load(f)
 
-    contacts_filepath = pathlib.Path(os.getenv("CONTACTS_EXTRACT_FILEPATH")).absolute()
-    with contacts_filepath.open("r") as f:
+    with open(os.getenv("CONTACTS_EXTRACT_FILEPATH"), "r") as f:
         contacts = json.load(f)
 
     active_contacts = [c for c in contacts if c["Status"] != "TERMINATED"]
@@ -24,6 +21,7 @@ def main():
         )
         for c in active_contacts
     ]
+
     options_terminated = [
         (
             f"{c['Last Name']}, "

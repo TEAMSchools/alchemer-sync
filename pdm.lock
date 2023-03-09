@@ -3,7 +3,7 @@
 
 [[package]]
 name = "alchemer"
-version = "0.6.0"
+version = "0.6.1"
 requires_python = ">=3.9"
 summary = ""
 dependencies = [
@@ -245,9 +245,9 @@ lock_version = "4.1"
 content_hash = "sha256:c1d57719287d04457d511df41aca00cbdcd2fc19a6159641f22d7c0611503a5a"
 
 [metadata.files]
-"alchemer 0.6.0" = [
-    {url = "https://files.pythonhosted.org/packages/71/da/1d27ece64536d4018d7e09f426c4c32f9d7db39db3ac0d4965614eed397f/alchemer-0.6.0-py3-none-any.whl", hash = "sha256:f74846952d14495684291f5773f8caade0b815dad5cb9c6ba6885a48e0526033"},
-    {url = "https://files.pythonhosted.org/packages/c5/45/c041c790afa6e4e276fac39b81c35fe9809591eb931a6747395fb3c2bdd3/alchemer-0.6.0.tar.gz", hash = "sha256:8d00c79ef541fc6f669fc9835437b1d83319fc236ea3fcdb75568981664952e6"},
+"alchemer 0.6.1" = [
+    {url = "https://files.pythonhosted.org/packages/54/d2/81f3572ca78217e1a4f684b2087f8b1ea4d2525bac3c382d87d3de3fd392/alchemer-0.6.1.tar.gz", hash = "sha256:0b1399828a229560d77e14d0957150ebf20d0af3c1fa1119b134912b920f94f7"},
+    {url = "https://files.pythonhosted.org/packages/bf/f3/2251e6aadecb734527c82e1119d6af100330e4ae90ac681643dce0f6f2cf/alchemer-0.6.1-py3-none-any.whl", hash = "sha256:f511ac490a2a9106c4bf35e4dfac4e57b0f379caa3564c2f834fd5dc791fa631"},
 ]
 "attrs 22.2.0" = [
     {url = "https://files.pythonhosted.org/packages/21/31/3f468da74c7de4fcf9b25591e682856389b3400b4b62f201e65f15ea3e07/attrs-22.2.0.tar.gz", hash = "sha256:c9227bfc2f01993c03f68db37d1d15c9690188323c067c641f1a35ca58185f99"},

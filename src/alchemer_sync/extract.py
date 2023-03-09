@@ -8,18 +8,15 @@ import alchemer
 import pendulum
 from google.cloud import storage
 
-SCRIPT_DIR = pathlib.Path(__file__).absolute().parent
 
+def save_json(data, file_dir, file_name):
+    file_dir.mkdir(parents=True, exist_ok=True)
+    file_path = file_dir / file_name
 
-def save_json(data, file_name):
-    file_dir = SCRIPT_DIR / "data" / file_name
-    if not file_dir.parent.exists():
-        file_dir.parent.mkdir(parents=True)
-
-    with gzip.open(file_dir, "wt", encoding="utf-8") as f:
+    with gzip.open(file_path, "wt", encoding="utf-8") as f:
         json.dump(data, f)
 
-    return file_dir
+    return file_path
 
 
 def upload_to_gcs(bucket, schema, file_path):
@@ -35,9 +32,8 @@ def main():
     gcs_storage_client = storage.Client()
     gcs_bucket = gcs_storage_client.bucket(os.getenv("GCS_BUCKET_NAME"))
 
-    data_dir = SCRIPT_DIR / "data"
-    if not data_dir.exists():
-        data_dir.mkdir(parents=True)
+    data_dir = pathlib.Path("data")
+    data_dir.mkdir(parents=True, exist_ok=True)
 
     state_file_path = data_dir / "state.json"
     if not state_file_path.exists():
@@ -59,27 +55,26 @@ def main():
     print("Getting list of surveys...\n")
     survey_list = alchemer_client.survey.list()
     for s in survey_list:
-        bookmark = state.get(s.get("id")) or "1970-01-01T00:00:00"
-        modified_on = pendulum.parse(
-            text=s.get("modified_on"),
-            tz=alchemer_timezone 
-        )
+        modified_on = pendulum.parse(text=s.get("modified_on"), tz=alchemer_timezone)
 
-        start_datetime = pendulum.parse(bookmark, tz=alchemer_timezone
-        )
-        start_str = start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
-        start_timestamp_str = str(start_datetime.timestamp()).replace(".", "_")
+        bookmark = state.get(s.get("id"))
+        if bookmark is not None:
+            start_datetime = pendulum.parse(bookmark, tz=alchemer_timezone)
+        else:
+            start_datetime = pendulum.from_timestamp(0, tz=alchemer_timezone)
+
+        start_str = start_datetime.format("YYYY-MM-DD HH:mm:ss Z")
 
         end_datetime = pendulum.now(tz=alchemer_timezone).subtract(hours=1)
-        end_str = end_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
+        end_str = end_datetime.format("YYYY-MM-DD HH:mm:ss Z")
 
         ay_start_datetime = pendulum.datetime(
             year=int(os.getenv("CURRENT_ACADEMIC_YEAR")),
             month=7,
             day=1,
-            tzinfo=alchemer_timezone,
+            tz=alchemer_timezone,
         )
-        ay_start_str = ay_start_datetime.strftime("%Y-%m-%d %H:%M:%S %Z")
+        ay_start_str = ay_start_datetime.format("YYYY-MM-DD HH:mm:ss Z")
 
         # skip unmodified archived surveys that haven't been downloaded
         if s.get("status") == "Archived" and start_datetime > modified_on:
@@ -93,14 +88,17 @@ def main():
         total_count = sum([int(v) for v in survey.statistics.values()])
         dq_count = survey.statistics.get("Disqualified", 0)
 
-        print(f"{survey.title}\nStart:\t{start_str}\nEnd:\t{end_str}")
+        print(f"{survey.title}\nStart:\t{start_datetime}\nEnd:\t{end_datetime}")
 
         # survey metadata
         endpoint = "survey"
         print(f"\n{survey.id} - {endpoint}...")
 
-        file_name = f"{endpoint}/{survey.id}.json.gz"
-        file_path = save_json(survey.data, file_name)
+        file_path = save_json(
+            data=survey.data,
+            file_dir=data_dir / endpoint,
+            file_name=f"{survey.id}.json.gz",
+        )
         print(f"\tSaved to {file_path}")
 
         blob = upload_to_gcs(gcs_bucket, "surveygizmo", file_path)
@@ -111,11 +109,16 @@ def main():
         print(f"\n{survey.id} - {endpoint}...")
 
         sq_list = survey.question.list()
-        sq_list = [dict(sq, survey_id=survey.id) for sq in sq_list]
         print(f"\tFound {len(sq_list)} records!")
 
-        file_name = f"{endpoint}/{survey.id}.json.gz"
-        file_path = save_json(sq_list, file_name)
+        # add survey_id
+        sq_list = [{**sq, "survey_id": survey.id} for sq in sq_list]
+
+        file_path = save_json(
+            data=sq_list,
+            file_dir=data_dir / endpoint,
+            file_name=f"{survey.id}.json.gz",
+        )
         print(f"\tSaved to {file_path}")
 
         blob = upload_to_gcs(gcs_bucket, "surveygizmo", file_path)
@@ -126,11 +129,16 @@ def main():
         print(f"\n{survey.id} - {endpoint}...")
 
         sc_list = survey.campaign.list()
-        sc_list = [dict(sc, survey_id=survey.id) for sc in sc_list]
         print(f"\tFound {len(sc_list)} records!")
 
-        file_name = f"{endpoint}/{survey.id}.json.gz"
-        file_path = save_json(sc_list, file_name)
+        # add survey_id
+        sc_list = [{**sc, "survey_id": survey.id} for sc in sc_list]
+
+        file_path = save_json(
+            data=sc_list,
+            file_dir=data_dir / endpoint,
+            file_name=f"{survey.id}.json.gz",
+        )
         print(f"\tSaved to {file_path}")
 
         blob = upload_to_gcs(gcs_bucket, "surveygizmo", file_path)
@@ -148,12 +156,16 @@ def main():
             if dq_list:
                 endpoint = "survey_response_disqualified"
                 print(f"\n{survey.id} - {endpoint}...")
-
-                dq_list = [dict(dq, survey_id=survey.id) for dq in dq_list]
                 print(f"\tFound {len(dq_list)} records!")
 
-                file_name = f"{endpoint}/{survey.id}_{ay_start_str}.json.gz"
-                file_path = save_json(dq_list, file_name)
+                # add survey_id
+                dq_list = [{**dq, "survey_id": survey.id} for dq in dq_list]
+
+                file_path = save_json(
+                    data=dq_list,
+                    file_dir=data_dir / endpoint,
+                    file_name=f"{survey.id}_{ay_start_str}.json.gz",
+                )
                 print(f"\tSaved to {file_path}")
 
                 blob = upload_to_gcs(gcs_bucket, "surveygizmo", file_path)
@@ -170,17 +182,23 @@ def main():
             if sr_list:
                 endpoint = "survey_response"
                 print(f"\n{survey.id} - {endpoint}...")
+                print(f"\tFound {len(sr_list)} records!")
 
-                sr_list = [dict(sr, survey_id=survey.id) for sr in sr_list]
+                # add survey_id
+                sr_list = [{**sr, "survey_id": survey.id} for sr in sr_list]
 
                 # `survey_data` needs to be transformed into list of dicts
-                sr_list = [
-                    dict(
-                        sr,
-                        survey_data_list=[v for k, v in sr.get("survey_data").items()],
-                    )
-                    for sr in sr_list
-                ]
+                for sr in sr_list:
+                    survey_response_data = sr.get("survey_data")
+                    if isinstance(survey_response_data, dict):
+                        survey_response_data_list = []
+
+                        for k, v in survey_response_data.items():
+                            survey_response_data_list.append(v)
+
+                        sr["survey_data_list"] = survey_response_data_list
+                    else:
+                        sr["survey_data_list"] = survey_response_data
 
                 # `options` needs to be transformed into list of dicts
                 for sr in sr_list:
@@ -189,10 +207,11 @@ def main():
                         if options:
                             q["options_list"] = [v for k, v in options.items()]
 
-                print(f"\tFound {len(sr_list)} records!")
-
-                file_name = f"{endpoint}/{survey.id}_{start_timestamp_str}.json.gz"
-                file_path = save_json(sr_list, file_name)
+                file_path = save_json(
+                    data=sr_list,
+                    file_dir=data_dir / endpoint,
+                    file_name=f"{survey.id}_{start_datetime.int_timestamp}.json.gz",
+                )
                 print(f"\tSaved to {file_path}")
 
                 blob = upload_to_gcs(gcs_bucket, "surveygizmo", file_path)
